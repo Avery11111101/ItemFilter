@@ -281,8 +281,9 @@ public class FilterExecutor {
         for (Map.Entry<String, ItemStack> entry : capturedItems.entrySet()) {
             ItemStack stack = entry.getValue();
             int totalInContainer = itemCounts.getOrDefault(entry.getKey(), 64);
-            // 預設將箱子內當前物品總數量或設定檔預設值作為上限
-            int maxCount = activeProfile.getDefaultMaxCount() > 0 ? activeProfile.getDefaultMaxCount() : totalInContainer;
+            // 預設將設定檔預設值（包含 -1 無上限）或箱子內當前物品總數量作為上限
+            int defaultMax = activeProfile.getDefaultMaxCount();
+            int maxCount = (defaultMax == -1 || defaultMax > 0) ? defaultMax : totalInContainer;
 
             FilterItemRule rule = FilterItemRule.fromItemStack(stack, maxCount, activeProfile.isDefaultMatchNbt());
             activeProfile.addOrUpdateRule(rule);

@@ -59,29 +59,59 @@ public class ModConfig {
         return config;
     }
 
+    private static final java.util.concurrent.ScheduledExecutorService DEBOUNCE_EXECUTOR = 
+            java.util.concurrent.Executors.newSingleThreadScheduledExecutor(r -> {
+                Thread t = new Thread(r, "ItemFilter-ConfigWriter");
+                t.setDaemon(true);
+                return t;
+            });
+    private static java.util.concurrent.ScheduledFuture<?> pendingSaveTask;
+    private static final Object SAVE_LOCK = new Object();
+
     public void save() {
         saveAsync();
     }
 
     /**
-     * 非同步將設定檔序列化並寫入磁碟，避免阻塞主遊戲/渲染執行緒
+     * 500ms 防抖非同步寫入磁碟，避免頻繁點擊介面造成磁碟 I/O 洪流與主執行緒卡頓
      */
     public void saveAsync() {
-        java.util.concurrent.CompletableFuture.runAsync(this::saveNow);
+        synchronized (SAVE_LOCK) {
+            if (pendingSaveTask != null && !pendingSaveTask.isDone()) {
+                pendingSaveTask.cancel(false);
+            }
+            pendingSaveTask = DEBOUNCE_EXECUTOR.schedule(this::saveNow, 500, java.util.concurrent.TimeUnit.MILLISECONDS);
+        }
     }
 
     /**
-     * 同步立即將設定檔寫入磁碟（用於關閉遊戲、關閉視窗等需要確保落盤的時機）
+     * 立即將設定檔寫入磁碟（使用 BufferedWriter 與暫存檔原子替換，避免檔案損壞與未緩衝 I/O 阻塞）
      */
-    public synchronized void saveNow() {
-        File file = getConfigFile();
-        try {
-            File parent = file.getParentFile();
-            if (parent != null && !parent.exists()) {
-                parent.mkdirs();
+    public void saveNow() {
+        synchronized (SAVE_LOCK) {
+            if (pendingSaveTask != null && !pendingSaveTask.isDone()) {
+                pendingSaveTask.cancel(false);
             }
-            try (FileWriter writer = new FileWriter(file, StandardCharsets.UTF_8)) {
+        }
+        File file = getConfigFile();
+        File parent = file.getParentFile();
+        if (parent != null && !parent.exists()) {
+            parent.mkdirs();
+        }
+        File tempFile = new File(file.getParentFile(), file.getName() + ".tmp");
+        try {
+            try (java.io.BufferedWriter writer = java.nio.file.Files.newBufferedWriter(tempFile.toPath(), StandardCharsets.UTF_8)) {
                 GSON.toJson(this, writer);
+            }
+            java.nio.file.Files.move(tempFile.toPath(), file.toPath(),
+                    java.nio.file.StandardCopyOption.REPLACE_EXISTING,
+                    java.nio.file.StandardCopyOption.ATOMIC_MOVE);
+        } catch (java.nio.file.AtomicMoveNotSupportedException e) {
+            try {
+                java.nio.file.Files.move(tempFile.toPath(), file.toPath(),
+                        java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            } catch (Exception ex) {
+                ex.printStackTrace();
             }
         } catch (Exception e) {
             e.printStackTrace();

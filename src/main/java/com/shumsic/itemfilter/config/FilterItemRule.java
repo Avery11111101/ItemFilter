@@ -44,7 +44,8 @@ public class FilterItemRule {
             return new FilterItemRule();
         }
         String id = BuiltInRegistries.ITEM.getKey(stack.getItem()).toString();
-        String patchStr = stack.getComponentsPatch().isEmpty() ? "" : stack.getComponentsPatch().toString();
+        // 只有開啟 matchNbt 時才保留 componentsPatch 字串，避免大量物件與常駐記憶體暴增 (OOM -805306369)
+        String patchStr = (matchNbt && !stack.getComponentsPatch().isEmpty()) ? stack.getComponentsPatch().toString() : "";
         String name = stack.getHoverName().getString();
         return new FilterItemRule(id, maxCount, matchNbt, patchStr, name);
     }

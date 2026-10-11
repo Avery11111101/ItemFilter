@@ -193,19 +193,34 @@ public class ItemFilterScreen extends Screen {
             int rightY = 30;
 
             // 批量控制列（統一數量上限與 NBT 設定）
-            this.batchCountField = new EditBox(this.font, rightX + 60, rightY, 40, 18, Component.literal("統一數量"));
-            this.batchCountField.setValue(String.valueOf(currentProfile.getDefaultMaxCount()));
+            this.batchCountField = new EditBox(this.font, rightX + 55, rightY, 36, 18, Component.literal("統一數量"));
+            int defaultMax = currentProfile.getDefaultMaxCount();
+            this.batchCountField.setValue(defaultMax < 0 ? "無上限" : String.valueOf(defaultMax));
             this.addRenderableWidget(this.batchCountField);
 
-            this.addRenderableWidget(Button.builder(Component.literal("統一套用數量"), btn -> {
+            this.addRenderableWidget(Button.builder(Component.literal("統一套用"), btn -> {
+                String val = batchCountField.getValue().trim();
                 try {
-                    int uniformCount = Integer.parseInt(batchCountField.getValue().trim());
+                    int uniformCount;
+                    if (val.equalsIgnoreCase("無上限") || val.equalsIgnoreCase("無限") || val.equals("-1")) {
+                        uniformCount = -1;
+                    } else {
+                        uniformCount = Integer.parseInt(val);
+                    }
                     currentProfile.applyUniformMaxCount(uniformCount);
                     config.save();
                     init();
                 } catch (NumberFormatException ignored) {}
-            }).bounds(rightX + 105, rightY - 1, 95, 20)
-              .tooltip(Tooltip.create(Component.literal("將此數量覆蓋套用至目前設定檔內的所有物品規則。")))
+            }).bounds(rightX + 95, rightY - 1, 62, 20)
+              .tooltip(Tooltip.create(Component.literal("將輸入的數量覆蓋套用至目前設定檔內的所有物品規則。")))
+              .build());
+
+            this.addRenderableWidget(Button.builder(Component.literal("全部無上限"), btn -> {
+                currentProfile.applyUniformMaxCount(-1);
+                config.save();
+                init();
+            }).bounds(rightX + 160, rightY - 1, 72, 20)
+              .tooltip(Tooltip.create(Component.literal("將目前設定檔內的所有物品規則數量全部設為「無上限」(-1)。")))
               .build());
 
             this.addRenderableWidget(Button.builder(
@@ -216,7 +231,7 @@ public class ItemFilterScreen extends Screen {
                         config.save();
                         init();
                     }
-            ).bounds(rightX + 205, rightY - 1, 95, 20)
+            ).bounds(rightX + 235, rightY - 1, 88, 20)
              .tooltip(Tooltip.create(Component.literal("切換所有物品比對 NBT / 資料組件（嚴格比對 vs 純物品 ID 模糊比對）。")))
              .build());
 
