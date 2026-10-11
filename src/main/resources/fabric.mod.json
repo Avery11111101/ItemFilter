@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "id": "itemfilter",
+  "version": "1.0.0",
+  "name": "ItemFilter",
+  "description": "Minecraft 純客戶端物品過濾與容器分類模組，支援多設定檔、統一/個別數量保留限制、NBT比對與一鍵箱子物品導入。",
+  "authors": [
+    "Avery"
+  ],
+  "license": "MIT",
+  "icon": "assets/itemfilter/icon.png",
+  "environment": "client",
+  "entrypoints": {
+    "client": [
+      "com.shumsic.itemfilter.ItemFilterClient"
+    ],
+    "modmenu": [
+      "com.shumsic.itemfilter.ModMenuIntegration"
+    ]
+  },
+  "mixins": [
+    "itemfilter.mixins.json"
+  ],
+  "depends": {
+    "minecraft": ">=26.3",
+    "fabricloader": ">=0.19.5",
+    "fabric-api": "*",
+    "java": ">=25"
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "key.itemfilter.category": "ItemFilter 物品過濾",
+  "key.itemfilter.open_config": "開啟物品過濾設定視窗",
+  "itemfilter.message.no_active_profile": "§c[物品過濾] 目前未選取任何設定檔！",
+  "itemfilter.sidebar.profile": "設定檔",
+  "itemfilter.sidebar.filter": "過濾",
+  "itemfilter.sidebar.capture": "擷取",
+  "itemfilter.sidebar.config": "設定"
+}

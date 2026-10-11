@@ -1,0 +1,6 @@
+.gradle/
+build/
+logs/
+run/
+README.AI.md
+.discord_notify.ps1

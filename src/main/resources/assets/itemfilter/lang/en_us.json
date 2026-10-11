@@ -1,0 +1,9 @@
+{
+  "key.itemfilter.category": "ItemFilter",
+  "key.itemfilter.open_config": "Open ItemFilter Screen",
+  "itemfilter.message.no_active_profile": "§c[ItemFilter] No active profile selected!",
+  "itemfilter.sidebar.profile": "Profile",
+  "itemfilter.sidebar.filter": "Filter",
+  "itemfilter.sidebar.capture": "Capture",
+  "itemfilter.sidebar.config": "Config"
+}
