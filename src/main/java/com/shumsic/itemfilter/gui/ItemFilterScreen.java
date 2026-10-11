@@ -2,6 +2,7 @@ package com.shumsic.itemfilter.gui;
 
 import com.shumsic.itemfilter.config.FilterItemRule;
 import com.shumsic.itemfilter.config.FilterProfile;
+import com.shumsic.itemfilter.config.MatchMode;
 import com.shumsic.itemfilter.config.ModConfig;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
@@ -240,16 +241,18 @@ public class ItemFilterScreen extends Screen {
               .tooltip(Tooltip.create(Component.literal("將目前設定檔內的所有物品規則數量全部設為「無上限」(-1)。")))
               .build());
 
+            // 批量切換比對模式（循環切換：一般 -> 附魔 -> 精確 -> 一般）
+            MatchMode defaultMode = currentProfile.getDefaultMatchMode();
             this.addRenderableWidget(Button.builder(
-                    Component.literal(currentProfile.isDefaultMatchNbt() ? "§a全部比對NBT" : "§7全部忽略NBT"),
+                    Component.literal("全部: " + defaultMode.getFormattedLabel()),
                     btn -> {
-                        boolean nextState = !currentProfile.isDefaultMatchNbt();
-                        currentProfile.applyUniformMatchNbt(nextState);
+                        MatchMode nextMode = currentProfile.getDefaultMatchMode().next();
+                        currentProfile.applyUniformMatchMode(nextMode);
                         config.save();
                         init();
                     }
             ).bounds(rightX + 235, rightY - 1, 88, 20)
-             .tooltip(Tooltip.create(Component.literal("切換所有物品比對 NBT / 資料組件（嚴格比對 vs 純物品 ID 模糊比對）。")))
+             .tooltip(Tooltip.create(Component.literal("批次切換所有規則之比對模式：\n[一般] 只比對種類\n[附魔] 嚴格比對附魔 (無視耐久)\n[精確] 比對所有組件 (無視耐久)")))
              .build());
 
             rightY += 28;
@@ -306,19 +309,39 @@ public class ItemFilterScreen extends Screen {
                     config.saveAsync();
                 }).bounds(rightX + 252, rowY, 26, 18).build());
 
-                // NBT 比對開關
-                this.addRenderableWidget(Button.builder(
-                        Component.literal(rule.isMatchNbt() ? "§a比對NBT" : "§7忽略NBT"),
+                // 三段式比對循環切換按鈕：[一般] -> [附魔] -> [精確] -> [一般]
+                MatchMode curRuleMode = rule.getMatchMode();
+                Button modeBtn = Button.builder(
+                        Component.literal(curRuleMode.getFormattedLabel()),
                         btn -> {
-                            rule.setMatchNbt(!rule.isMatchNbt());
-                            btn.setMessage(Component.literal(rule.isMatchNbt() ? "§a比對NBT" : "§7忽略NBT"));
+                            MatchMode next = rule.getMatchMode().next();
+                            rule.setMatchMode(next);
+                            currentProfile.invalidateCache();
+                            btn.setMessage(Component.literal(next.getFormattedLabel()));
+                            String tipText = next.getDescription();
+                            if (next == MatchMode.ENCHANTMENTS && (rule.getEnchantmentsString() == null || rule.getEnchantmentsString().isEmpty())) {
+                                tipText += "\n§e(注意: 本規則無附魔資料，請手持目標物品點擊加入或重新擷取)";
+                            } else if (next == MatchMode.EXACT && (rule.getComponentsPatchString() == null || rule.getComponentsPatchString().isEmpty())) {
+                                tipText += "\n§e(注意: 本規則無組件補丁資料，請重新擷取)";
+                            }
+                            btn.setTooltip(Tooltip.create(Component.literal(tipText)));
                             config.saveAsync();
                         }
-                ).bounds(rightX + 282, rowY, 56, 18).build());
+                ).bounds(rightX + 282, rowY, 56, 18).build();
 
-                // 刪除規則按鈕
+                String initialTip = curRuleMode.getDescription();
+                if (curRuleMode == MatchMode.ENCHANTMENTS && (rule.getEnchantmentsString() == null || rule.getEnchantmentsString().isEmpty())) {
+                    initialTip += "\n§e(注意: 本規則無附魔資料，請手持目標物品點擊加入或重新擷取)";
+                } else if (curRuleMode == MatchMode.EXACT && (rule.getComponentsPatchString() == null || rule.getComponentsPatchString().isEmpty())) {
+                    initialTip += "\n§e(注意: 本規則無組件補丁資料，請重新擷取)";
+                }
+                modeBtn.setTooltip(Tooltip.create(Component.literal(initialTip)));
+                this.addRenderableWidget(modeBtn);
+
+                // 刪除規則按鈕（修復：清除快取並存檔）
                 this.addRenderableWidget(Button.builder(Component.literal("§c✕"), btn -> {
                     rules.remove(ruleIndex);
+                    currentProfile.invalidateCache();
                     config.saveAsync();
                     init();
                 }).bounds(rightX + 342, rowY, 20, 18)
@@ -358,7 +381,7 @@ public class ItemFilterScreen extends Screen {
                         Item item = BuiltInRegistries.ITEM.getValue(id);
                         if (item != Items.AIR) {
                             ItemStack dummyStack = new ItemStack(item);
-                            FilterItemRule newRule = FilterItemRule.fromItemStack(dummyStack, currentProfile.getDefaultMaxCount(), currentProfile.isDefaultMatchNbt());
+                            FilterItemRule newRule = FilterItemRule.fromItemStack(dummyStack, currentProfile.getDefaultMaxCount(), currentProfile.getDefaultMatchMode());
                             currentProfile.addOrUpdateRule(newRule);
                             config.save();
                             manualItemField.setValue("");

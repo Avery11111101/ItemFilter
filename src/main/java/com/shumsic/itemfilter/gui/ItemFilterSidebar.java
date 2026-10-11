@@ -178,7 +178,7 @@ public class ItemFilterSidebar {
             } else {
                 List<CaptureConfirmScreen.CaptureCandidate> candidates = new ArrayList<>();
                 candidates.add(new CaptureConfirmScreen.CaptureCandidate(
-                        stack, active.getDefaultMaxCount(), active.isDefaultMatchNbt()
+                        stack, active.getDefaultMaxCount(), active.getDefaultMatchMode()
                 ));
                 if (client.gui != null) {
                     client.gui.setScreen(new CaptureConfirmScreen(screen, active, candidates));

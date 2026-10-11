@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "id": "itemfilter",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "name": "ItemFilter",
   "description": "Minecraft 純客戶端物品過濾與容器分類模組，支援多設定檔、統一/個別數量保留限制、NBT比對與一鍵箱子物品導入。",
   "authors": [

@@ -2,6 +2,7 @@ package com.shumsic.itemfilter.gui;
 
 import com.shumsic.itemfilter.config.FilterItemRule;
 import com.shumsic.itemfilter.config.FilterProfile;
+import com.shumsic.itemfilter.config.MatchMode;
 import com.shumsic.itemfilter.config.ModConfig;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -27,25 +28,36 @@ public class CaptureConfirmScreen extends Screen {
     public static class CaptureCandidate {
         public final ItemStack stack;
         public final int defaultMaxCount;
+        public final MatchMode matchMode;
         public final boolean matchNbt;
         public final String itemId;
         public final String displayName;
         public final String nbtPreview;
 
-        public CaptureCandidate(ItemStack stack, int defaultMaxCount, boolean matchNbt) {
+        public CaptureCandidate(ItemStack stack, int defaultMaxCount, MatchMode matchMode) {
             this.stack = stack.copy();
             this.defaultMaxCount = defaultMaxCount;
-            this.matchNbt = matchNbt;
+            this.matchMode = matchMode != null ? matchMode : MatchMode.ITEM_ONLY;
+            this.matchNbt = this.matchMode != MatchMode.ITEM_ONLY;
             this.itemId = net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(stack.getItem()).toString();
             this.displayName = stack.getHoverName().getString();
 
-            DataComponentPatch patch = stack.getComponentsPatch();
-            if (patch.isEmpty()) {
-                this.nbtPreview = "無特殊組件 (預設)";
+            if (this.matchMode == MatchMode.ENCHANTMENTS) {
+                String ench = FilterItemRule.extractEnchantmentsString(stack);
+                this.nbtPreview = ench.isEmpty() ? "無附魔" : ench;
             } else {
-                String str = patch.toString();
-                this.nbtPreview = (str.length() > 60) ? str.substring(0, 57) + "..." : str;
+                DataComponentPatch patch = stack.getComponentsPatch();
+                if (patch.isEmpty()) {
+                    this.nbtPreview = "無特殊組件 (預設)";
+                } else {
+                    String str = patch.toString();
+                    this.nbtPreview = (str.length() > 60) ? str.substring(0, 57) + "..." : str;
+                }
             }
+        }
+
+        public CaptureCandidate(ItemStack stack, int defaultMaxCount, boolean matchNbt) {
+            this(stack, defaultMaxCount, matchNbt ? MatchMode.EXACT : MatchMode.ITEM_ONLY);
         }
     }
 
@@ -135,7 +147,7 @@ public class CaptureConfirmScreen extends Screen {
 
     private void addCandidateToProfile(CaptureCandidate candidate) {
         if (targetProfile == null) return;
-        FilterItemRule rule = FilterItemRule.fromItemStack(candidate.stack, candidate.defaultMaxCount, candidate.matchNbt);
+        FilterItemRule rule = FilterItemRule.fromItemStack(candidate.stack, candidate.defaultMaxCount, candidate.matchMode);
         targetProfile.addOrUpdateRule(rule);
     }
 
@@ -182,13 +194,15 @@ public class CaptureConfirmScreen extends Screen {
                 extractor.fakeItem(candidate.stack, listLeft + 4, rowY + 2);
             }
 
-            // 物品名稱與數量上限
+            // 物品名稱與數量上限 + 模式標籤
             String countText = (candidate.defaultMaxCount == -1) ? "無上限" : String.valueOf(candidate.defaultMaxCount);
-            String title = String.format("§f%s §7(上限: %s)§r", candidate.displayName, countText);
+            String title = String.format("§f%s §7(上限: %s) [%s]§r", candidate.displayName, countText, candidate.matchMode.getFormattedLabel());
             extractor.text(this.font, title, listLeft + 26, rowY + 2, 0xFFFFFF);
 
-            // NBT / 組件摘要
-            String nbtText = "§8NBT: " + candidate.nbtPreview + "§r";
+            // NBT / 附魔 / 組件摘要
+            String nbtText = (candidate.matchMode == MatchMode.ENCHANTMENTS)
+                    ? "§b附魔: " + candidate.nbtPreview + "§r"
+                    : "§8組件: " + candidate.nbtPreview + "§r";
             extractor.text(this.font, nbtText, listLeft + 26, rowY + 12, 0x888888);
 
             // 檢查滑鼠是否懸浮於物品或文字區域，以觸發 Tooltip

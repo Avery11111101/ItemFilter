@@ -13,7 +13,8 @@ public class FilterProfile {
     private String id;
     private String name;
     private int defaultMaxCount;
-    private boolean defaultMatchNbt;
+    private MatchMode defaultMatchMode;
+    private Boolean defaultMatchNbt;
     private boolean locked = false;
     private List<FilterItemRule> rules;
 
@@ -21,7 +22,7 @@ public class FilterProfile {
         this.id = UUID.randomUUID().toString();
         this.name = "未命名設定檔";
         this.defaultMaxCount = 64;
-        this.defaultMatchNbt = false;
+        this.defaultMatchMode = MatchMode.ITEM_ONLY;
         this.locked = false;
         this.rules = new ArrayList<>();
     }
@@ -55,12 +56,28 @@ public class FilterProfile {
         this.defaultMaxCount = defaultMaxCount;
     }
 
+    public MatchMode getDefaultMatchMode() {
+        if (this.defaultMatchMode != null) {
+            return this.defaultMatchMode;
+        }
+        if (this.defaultMatchNbt != null && this.defaultMatchNbt) {
+            return MatchMode.EXACT;
+        }
+        return MatchMode.ITEM_ONLY;
+    }
+
+    public void setDefaultMatchMode(MatchMode defaultMatchMode) {
+        this.defaultMatchMode = defaultMatchMode;
+        this.defaultMatchNbt = (defaultMatchMode != MatchMode.ITEM_ONLY);
+    }
+
     public boolean isDefaultMatchNbt() {
-        return defaultMatchNbt;
+        return getDefaultMatchMode() != MatchMode.ITEM_ONLY;
     }
 
     public void setDefaultMatchNbt(boolean defaultMatchNbt) {
         this.defaultMatchNbt = defaultMatchNbt;
+        this.defaultMatchMode = defaultMatchNbt ? MatchMode.EXACT : MatchMode.ITEM_ONLY;
     }
 
     public boolean isLocked() {
@@ -164,15 +181,23 @@ public class FilterProfile {
     }
 
     /**
-     * 統一切換 NBT / 資料組件比對模式
+     * 統一切換比對模式（支援 MatchMode 三段式）
      */
-    public void applyUniformMatchNbt(boolean matchNbt) {
-        this.defaultMatchNbt = matchNbt;
+    public void applyUniformMatchMode(MatchMode matchMode) {
+        this.defaultMatchMode = matchMode;
+        this.defaultMatchNbt = (matchMode != MatchMode.ITEM_ONLY);
         if (rules != null) {
             for (FilterItemRule rule : rules) {
-                rule.setMatchNbt(matchNbt);
+                rule.setMatchMode(matchMode);
             }
         }
         invalidateCache();
+    }
+
+    /**
+     * 統一切換 NBT / 資料組件比對模式 (向後相容)
+     */
+    public void applyUniformMatchNbt(boolean matchNbt) {
+        applyUniformMatchMode(matchNbt ? MatchMode.EXACT : MatchMode.ITEM_ONLY);
     }
 }

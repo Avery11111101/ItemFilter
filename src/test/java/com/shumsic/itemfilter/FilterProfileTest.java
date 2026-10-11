@@ -2,6 +2,7 @@ package com.shumsic.itemfilter;
 
 import com.shumsic.itemfilter.config.FilterItemRule;
 import com.shumsic.itemfilter.config.FilterProfile;
+import com.shumsic.itemfilter.config.MatchMode;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -15,15 +16,15 @@ public class FilterProfileTest {
         assertNotNull(profile.getId());
         assertEquals(0, profile.getRules().size());
 
-        FilterItemRule iron = new FilterItemRule("minecraft:iron_ingot", 64, false, "", "鐵錠");
-        FilterItemRule gold = new FilterItemRule("minecraft:gold_ingot", 32, false, "", "金錠");
+        FilterItemRule iron = new FilterItemRule("minecraft:iron_ingot", 64, MatchMode.ITEM_ONLY, "", "", "鐵錠");
+        FilterItemRule gold = new FilterItemRule("minecraft:gold_ingot", 32, MatchMode.ITEM_ONLY, "", "", "金錠");
 
         profile.addOrUpdateRule(iron);
         profile.addOrUpdateRule(gold);
         assertEquals(2, profile.getRules().size());
 
         // 再次加入相同物品，更新數量
-        FilterItemRule ironUpdate = new FilterItemRule("minecraft:iron_ingot", 128, false, "", "鐵錠");
+        FilterItemRule ironUpdate = new FilterItemRule("minecraft:iron_ingot", 128, MatchMode.ITEM_ONLY, "", "", "鐵錠");
         profile.addOrUpdateRule(ironUpdate);
         assertEquals(2, profile.getRules().size());
         assertEquals(128, profile.getRules().get(0).getMaxCount());
@@ -32,9 +33,9 @@ public class FilterProfileTest {
     @Test
     void testUniformMaxCountReplacement() {
         FilterProfile profile = new FilterProfile("土希拉");
-        profile.addOrUpdateRule(new FilterItemRule("minecraft:dirt", 64, false, "", "泥土"));
-        profile.addOrUpdateRule(new FilterItemRule("minecraft:cobblestone", 128, false, "", "鵝卵石"));
-        profile.addOrUpdateRule(new FilterItemRule("minecraft:oak_log", 32, false, "", "原木"));
+        profile.addOrUpdateRule(new FilterItemRule("minecraft:dirt", 64, MatchMode.ITEM_ONLY, "", "", "泥土"));
+        profile.addOrUpdateRule(new FilterItemRule("minecraft:cobblestone", 128, MatchMode.ITEM_ONLY, "", "", "鵝卵石"));
+        profile.addOrUpdateRule(new FilterItemRule("minecraft:oak_log", 32, MatchMode.ITEM_ONLY, "", "", "原木"));
 
         // 統一設定數量上限為 16（取代下去）
         profile.applyUniformMaxCount(16);
@@ -45,21 +46,27 @@ public class FilterProfileTest {
     }
 
     @Test
-    void testUniformMatchNbtToggle() {
+    void testUniformMatchModeToggle() {
         FilterProfile profile = new FilterProfile("測試設定檔");
-        profile.addOrUpdateRule(new FilterItemRule("minecraft:sword", 1, false, "", "劍"));
-        profile.addOrUpdateRule(new FilterItemRule("minecraft:bow", 1, false, "", "弓"));
+        profile.addOrUpdateRule(new FilterItemRule("minecraft:iron_axe", 1, MatchMode.ITEM_ONLY, "", "", "鐵斧"));
+        profile.addOrUpdateRule(new FilterItemRule("minecraft:bow", 1, MatchMode.ITEM_ONLY, "", "", "弓"));
 
-        profile.applyUniformMatchNbt(true);
-        assertTrue(profile.isDefaultMatchNbt());
+        profile.applyUniformMatchMode(MatchMode.ENCHANTMENTS);
+        assertEquals(MatchMode.ENCHANTMENTS, profile.getDefaultMatchMode());
         for (FilterItemRule rule : profile.getRules()) {
-            assertTrue(rule.isMatchNbt());
+            assertEquals(MatchMode.ENCHANTMENTS, rule.getMatchMode());
         }
 
-        profile.applyUniformMatchNbt(false);
-        assertFalse(profile.isDefaultMatchNbt());
+        profile.applyUniformMatchMode(MatchMode.EXACT);
+        assertEquals(MatchMode.EXACT, profile.getDefaultMatchMode());
         for (FilterItemRule rule : profile.getRules()) {
-            assertFalse(rule.isMatchNbt());
+            assertEquals(MatchMode.EXACT, rule.getMatchMode());
+        }
+
+        profile.applyUniformMatchMode(MatchMode.ITEM_ONLY);
+        assertEquals(MatchMode.ITEM_ONLY, profile.getDefaultMatchMode());
+        for (FilterItemRule rule : profile.getRules()) {
+            assertEquals(MatchMode.ITEM_ONLY, rule.getMatchMode());
         }
     }
 }
