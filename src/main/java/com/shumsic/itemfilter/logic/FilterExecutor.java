@@ -8,6 +8,7 @@ import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.ContainerInput;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 
@@ -69,7 +70,7 @@ public class FilterExecutor {
         Component title = screen.getTitle();
         if (title != null) {
             String titleStr = title.getString().toLowerCase();
-            if (titleStr.contains("menu") || titleStr.contains("選單") || titleStr.contains("菜單") || titleStr.contains("server")) {
+            if (titleStr.contains("menu") || titleStr.contains("選單") || titleStr.contains("菜單") || titleStr.contains("server") || titleStr.contains("大廳")) {
                 return false;
             }
         }
@@ -264,9 +265,10 @@ public class FilterExecutor {
             if (slot.container != client.player.getInventory()) {
                 ItemStack stack = slot.getItem();
                 if (!stack.isEmpty()) {
+                    String itemIdStr = BuiltInRegistries.ITEM.getKey(stack.getItem()).toString();
                     String key = activeProfile.isDefaultMatchNbt()
-                            ? stack.getItem().toString() + "_" + (stack.getComponentsPatch().isEmpty() ? "" : stack.getComponentsPatch().toString())
-                            : stack.getItem().toString();
+                            ? itemIdStr + "_" + (stack.getComponentsPatch().isEmpty() ? "" : stack.getComponentsPatch().toString())
+                            : itemIdStr;
 
                     capturedItems.putIfAbsent(key, stack.copy());
                     itemCounts.put(key, itemCounts.getOrDefault(key, 0) + stack.getCount());
