@@ -14,6 +14,7 @@ public class FilterProfile {
     private String name;
     private int defaultMaxCount;
     private boolean defaultMatchNbt;
+    private boolean locked = false;
     private List<FilterItemRule> rules;
 
     public FilterProfile() {
@@ -21,6 +22,7 @@ public class FilterProfile {
         this.name = "未命名設定檔";
         this.defaultMaxCount = 64;
         this.defaultMatchNbt = false;
+        this.locked = false;
         this.rules = new ArrayList<>();
     }
 
@@ -59,6 +61,14 @@ public class FilterProfile {
 
     public void setDefaultMatchNbt(boolean defaultMatchNbt) {
         this.defaultMatchNbt = defaultMatchNbt;
+    }
+
+    public boolean isLocked() {
+        return locked;
+    }
+
+    public void setLocked(boolean locked) {
+        this.locked = locked;
     }
 
     // 記憶體快取索引（不進行 GSON 序列化）

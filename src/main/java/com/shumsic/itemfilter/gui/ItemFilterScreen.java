@@ -117,8 +117,12 @@ public class ItemFilterScreen extends Screen {
             FilterProfile p = profiles.get(i);
             boolean isSelected = (index == selectedProfileIndex);
             boolean isActive = p.getId().equals(config.getActiveProfileId());
+            boolean isLocked = p.isLocked();
 
             String prefix = isActive ? "§a✔ " : (isSelected ? "§e▶ " : "  ");
+            if (isLocked) {
+                prefix += "§6🔒 ";
+            }
             String btnText = prefix + p.getName();
             if (btnText.length() > 14) {
                 btnText = btnText.substring(0, 13) + "…";
@@ -187,6 +191,19 @@ public class ItemFilterScreen extends Screen {
                 init();
             }
         }).bounds(leftX + halfWidth + 4, y, halfWidth, 20).build());
+        y += 22;
+
+        // 鎖定 / 解鎖按鈕
+        if (currentProfile != null) {
+            boolean isCurLocked = currentProfile.isLocked();
+            String lockBtnText = isCurLocked ? "§6🔒 已鎖定 (點擊解鎖)" : "§7🔓 未鎖定 (點擊鎖定)";
+            this.addRenderableWidget(Button.builder(Component.literal(lockBtnText), btn -> {
+                currentProfile.setLocked(!isCurLocked);
+                config.save();
+                init();
+            }).bounds(leftX, y, leftPaneWidth, 20).build());
+            y += 22;
+        }
 
         // ================= 右側：規則清單與批量設定 =================
         if (currentProfile != null) {

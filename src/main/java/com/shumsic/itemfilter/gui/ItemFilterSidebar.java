@@ -14,6 +14,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -161,6 +162,13 @@ public class ItemFilterSidebar {
                 active = config.getActiveProfile();
             }
 
+            if (active.isLocked()) {
+                client.player.sendOverlayMessage(
+                        Component.literal("§c[物品過濾] 設定檔「" + active.getName() + "」已鎖定，無法加入新物品！請至設定中解鎖。")
+                );
+                return;
+            }
+
             FilterItemRule existing = active.findRule(stack);
             if (existing != null) {
                 client.player.sendOverlayMessage(
@@ -168,13 +176,13 @@ public class ItemFilterSidebar {
                                 active.getName(), stack.getHoverName().getString(), existing.getMaxCount()))
                 );
             } else {
-                FilterItemRule newRule = FilterItemRule.fromItemStack(stack, active.getDefaultMaxCount(), active.isDefaultMatchNbt());
-                active.addOrUpdateRule(newRule);
-                config.save();
-                client.player.sendOverlayMessage(
-                        Component.literal(String.format("§a[物品過濾] 已快速將「%s」加入設定檔「%s」(上限: %d)",
-                                stack.getHoverName().getString(), active.getName(), newRule.getMaxCount()))
-                );
+                List<CaptureConfirmScreen.CaptureCandidate> candidates = new ArrayList<>();
+                candidates.add(new CaptureConfirmScreen.CaptureCandidate(
+                        stack, active.getDefaultMaxCount(), active.isDefaultMatchNbt()
+                ));
+                if (client.gui != null) {
+                    client.gui.setScreen(new CaptureConfirmScreen(screen, active, candidates));
+                }
             }
         }
     }

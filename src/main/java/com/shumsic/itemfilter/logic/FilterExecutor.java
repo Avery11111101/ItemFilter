@@ -257,6 +257,13 @@ public class FilterExecutor {
             return;
         }
 
+        if (activeProfile.isLocked()) {
+            client.player.sendOverlayMessage(
+                    Component.literal("§c[物品過濾] 設定檔「" + activeProfile.getName() + "」已鎖定，無法加入新物品！請至設定中解鎖。")
+            );
+            return;
+        }
+
         // 收集容器槽位
         Map<String, ItemStack> capturedItems = new LinkedHashMap<>();
         Map<String, Integer> itemCounts = new LinkedHashMap<>();
@@ -281,22 +288,20 @@ public class FilterExecutor {
             return;
         }
 
-        int addedCount = 0;
+        List<com.shumsic.itemfilter.gui.CaptureConfirmScreen.CaptureCandidate> candidates = new ArrayList<>();
         for (Map.Entry<String, ItemStack> entry : capturedItems.entrySet()) {
             ItemStack stack = entry.getValue();
             int totalInContainer = itemCounts.getOrDefault(entry.getKey(), 64);
-            // 預設將設定檔預設值（包含 -1 無上限）或箱子內當前物品總數量作為上限
             int defaultMax = activeProfile.getDefaultMaxCount();
             int maxCount = (defaultMax == -1 || defaultMax > 0) ? defaultMax : totalInContainer;
 
-            FilterItemRule rule = FilterItemRule.fromItemStack(stack, maxCount, activeProfile.isDefaultMatchNbt());
-            activeProfile.addOrUpdateRule(rule);
-            addedCount++;
+            candidates.add(new com.shumsic.itemfilter.gui.CaptureConfirmScreen.CaptureCandidate(
+                    stack, maxCount, activeProfile.isDefaultMatchNbt()
+            ));
         }
 
-        config.save();
-        client.player.sendOverlayMessage(
-                Component.literal(String.format("§a[物品過濾] 已將此容器中 %d 種物品導入設定檔「%s」！", addedCount, activeProfile.getName()))
-        );
+        if (client.gui != null) {
+            client.gui.setScreen(new com.shumsic.itemfilter.gui.CaptureConfirmScreen(screen, activeProfile, candidates));
+        }
     }
 }
