@@ -57,9 +57,22 @@ public class FilterExecutor {
     public boolean isContainerScreen(AbstractContainerScreen<?> screen) {
         if (screen == null) return false;
         Minecraft client = Minecraft.getInstance();
-        if (client.player == null) return false;
+        if (client.player == null || client.level == null) return false;
+
+        // 忽略未處於有效連線狀態的情況
+        if (client.getConnection() == null) return false;
+
         AbstractContainerMenu menu = screen.getMenu();
         if (menu == null) return false;
+
+        // 排除常見的伺服器菜單與非一般實體容器（比對標題關鍵字）
+        Component title = screen.getTitle();
+        if (title != null) {
+            String titleStr = title.getString().toLowerCase();
+            if (titleStr.contains("menu") || titleStr.contains("選單") || titleStr.contains("菜單") || titleStr.contains("server")) {
+                return false;
+            }
+        }
 
         for (Slot slot : menu.slots) {
             if (slot.container != client.player.getInventory()) {
@@ -206,24 +219,13 @@ public class FilterExecutor {
                 retainedCountMap.put(matchedRule, alreadyKept + keepFromSlot);
 
                 if (dropFromSlot == slotCount) {
-                    // 整格都超額，整組丟出 (Ctrl+Q)
+                    // 整疊都超出上限：安全整組拋出 (Ctrl+Q)
                     actionQueue.add(WindowAction.dropStack(menu.containerId, slot.index));
                     totalDroppedItems += slotCount;
                 } else if (dropFromSlot > 0) {
-                    // 部分超額：若超額數量佔了絕大多數（例如保留少量，丟棄大量），
-                    // 或甚至只需要丟棄少量，以最少封包與最少掉落物為目標
-                    if (keepFromSlot <= 3 && dropFromSlot > 3) {
-                        // 技巧：先整組丟出 (Ctrl+Q)，此時掉落一整疊（單一掉落物實體！不會造成掉落物風暴）
-                        // 然後玩家若有需要可保留在身上或此處已將大部分超額以單疊丟出
-                        actionQueue.add(WindowAction.dropStack(menu.containerId, slot.index));
-                    } else if (dropFromSlot <= 8) {
-                        // 小於等於 8 個超額，模擬 Q 丟出，數量少不會引發風暴
-                        for (int i = 0; i < dropFromSlot; i++) {
-                            actionQueue.add(WindowAction.dropSingle(menu.containerId, slot.index));
-                        }
-                    } else {
-                        // 超額數量較大時：整組丟出 (Ctrl+Q)，避免在地面生成數十個單顆實體
-                        actionQueue.add(WindowAction.dropStack(menu.containerId, slot.index));
+                    // 部分超出上限：僅精確丟出 dropFromSlot 數量，絕不能呼叫 dropStack
+                    for (int i = 0; i < dropFromSlot; i++) {
+                        actionQueue.add(WindowAction.dropSingle(menu.containerId, slot.index));
                     }
                     totalDroppedItems += dropFromSlot;
                 }

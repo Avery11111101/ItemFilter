@@ -93,6 +93,13 @@ public class ModConfig {
                 pendingSaveTask.cancel(false);
             }
         }
+
+        // 於同步塊內建立 JSON 字串快照，避免背景執行緒序列化時主執行緒正在修改 ArrayList
+        String jsonOutput;
+        synchronized (this) {
+            jsonOutput = GSON.toJson(this);
+        }
+
         File file = getConfigFile();
         File parent = file.getParentFile();
         if (parent != null && !parent.exists()) {
@@ -101,7 +108,7 @@ public class ModConfig {
         File tempFile = new File(file.getParentFile(), file.getName() + ".tmp");
         try {
             try (java.io.BufferedWriter writer = java.nio.file.Files.newBufferedWriter(tempFile.toPath(), StandardCharsets.UTF_8)) {
-                GSON.toJson(this, writer);
+                writer.write(jsonOutput);
             }
             java.nio.file.Files.move(tempFile.toPath(), file.toPath(),
                     java.nio.file.StandardCopyOption.REPLACE_EXISTING,

@@ -26,6 +26,13 @@ public class ItemFilterSidebar {
             return;
         }
 
+        // 檢查是否已經存在側邊欄按鈕，避免重複掛載疊加
+        boolean alreadyAttached = Screens.getWidgets(screen).stream()
+                .anyMatch(w -> w.getMessage().getString().contains("過濾") || w.getMessage().getString().contains("擷取"));
+        if (alreadyAttached) {
+            return;
+        }
+
         AbstractContainerScreenAccessor accessor = (AbstractContainerScreenAccessor) screen;
         int leftPos = accessor.getLeftPos();
         int topPos = accessor.getTopPos();

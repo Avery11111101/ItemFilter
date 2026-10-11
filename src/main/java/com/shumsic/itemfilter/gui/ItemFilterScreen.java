@@ -252,39 +252,41 @@ public class ItemFilterScreen extends Screen {
                 FilterItemRule rule = rules.get(i);
                 int rowY = rightY + (i - startIndex) * 24;
 
+                // 數量顯示按鈕（先宣告持有引用，供加減按鈕就地更新）
+                String countText = rule.getMaxCount() < 0 ? "無上限" : String.valueOf(rule.getMaxCount());
+                Button countBtn = Button.builder(Component.literal(countText), btn -> {
+                    rule.setMaxCount(rule.getMaxCount() == 64 ? -1 : 64);
+                    btn.setMessage(Component.literal(rule.getMaxCount() < 0 ? "無上限" : String.valueOf(rule.getMaxCount())));
+                    config.saveAsync();
+                }).bounds(rightX + 182, rowY, 44, 18)
+                  .tooltip(Tooltip.create(Component.literal("點擊快速切換 64 或無上限")))
+                  .build();
+
                 // 數量調整按鈕: -64, -1, [數量顯示], +1, +64
                 this.addRenderableWidget(Button.builder(Component.literal("-64"), btn -> {
                     rule.setMaxCount(Math.max(-1, rule.getMaxCount() - 64));
-                    config.save();
-                    init();
+                    countBtn.setMessage(Component.literal(rule.getMaxCount() < 0 ? "無上限" : String.valueOf(rule.getMaxCount())));
+                    config.saveAsync();
                 }).bounds(rightX + 130, rowY, 26, 18).build());
 
                 this.addRenderableWidget(Button.builder(Component.literal("-1"), btn -> {
                     rule.setMaxCount(Math.max(-1, rule.getMaxCount() - 1));
-                    config.save();
-                    init();
+                    countBtn.setMessage(Component.literal(rule.getMaxCount() < 0 ? "無上限" : String.valueOf(rule.getMaxCount())));
+                    config.saveAsync();
                 }).bounds(rightX + 158, rowY, 22, 18).build());
 
-                // 點擊數量切換無上限或 64
-                String countText = rule.getMaxCount() < 0 ? "無上限" : String.valueOf(rule.getMaxCount());
-                this.addRenderableWidget(Button.builder(Component.literal(countText), btn -> {
-                    rule.setMaxCount(rule.getMaxCount() == 64 ? -1 : 64);
-                    config.save();
-                    init();
-                }).bounds(rightX + 182, rowY, 44, 18)
-                  .tooltip(Tooltip.create(Component.literal("點擊快速切換 64 或無上限")))
-                  .build());
+                this.addRenderableWidget(countBtn);
 
                 this.addRenderableWidget(Button.builder(Component.literal("+1"), btn -> {
                     rule.setMaxCount(Math.max(1, (rule.getMaxCount() < 0 ? 0 : rule.getMaxCount()) + 1));
-                    config.save();
-                    init();
+                    countBtn.setMessage(Component.literal(rule.getMaxCount() < 0 ? "無上限" : String.valueOf(rule.getMaxCount())));
+                    config.saveAsync();
                 }).bounds(rightX + 228, rowY, 22, 18).build());
 
                 this.addRenderableWidget(Button.builder(Component.literal("+64"), btn -> {
                     rule.setMaxCount(Math.max(64, (rule.getMaxCount() < 0 ? 0 : rule.getMaxCount()) + 64));
-                    config.save();
-                    init();
+                    countBtn.setMessage(Component.literal(rule.getMaxCount() < 0 ? "無上限" : String.valueOf(rule.getMaxCount())));
+                    config.saveAsync();
                 }).bounds(rightX + 252, rowY, 26, 18).build());
 
                 // NBT 比對開關
@@ -292,15 +294,15 @@ public class ItemFilterScreen extends Screen {
                         Component.literal(rule.isMatchNbt() ? "§a比對NBT" : "§7忽略NBT"),
                         btn -> {
                             rule.setMatchNbt(!rule.isMatchNbt());
-                            config.save();
-                            init();
+                            btn.setMessage(Component.literal(rule.isMatchNbt() ? "§a比對NBT" : "§7忽略NBT"));
+                            config.saveAsync();
                         }
                 ).bounds(rightX + 282, rowY, 56, 18).build());
 
                 // 刪除規則按鈕
                 this.addRenderableWidget(Button.builder(Component.literal("§c✕"), btn -> {
                     rules.remove(ruleIndex);
-                    config.save();
+                    config.saveAsync();
                     init();
                 }).bounds(rightX + 342, rowY, 20, 18)
                   .tooltip(Tooltip.create(Component.literal("從清單中移除此物品")))
@@ -425,7 +427,7 @@ public class ItemFilterScreen extends Screen {
 
     @Override
     public void onClose() {
-        ModConfig.getInstance().saveNow();
+        ModConfig.getInstance().saveAsync();
         if (this.parentScreen != null && this.minecraft.gui != null) {
             this.minecraft.gui.setScreen(this.parentScreen);
         } else {
