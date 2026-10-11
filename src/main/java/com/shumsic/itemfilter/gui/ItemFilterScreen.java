@@ -45,6 +45,53 @@ public class ItemFilterScreen extends Screen {
         }
     }
 
+    private static class RenderItemInfo {
+        final ItemStack stack;
+        final String displayName;
+
+        RenderItemInfo(ItemStack stack, String displayName) {
+            this.stack = stack;
+            this.displayName = displayName;
+        }
+    }
+
+    private final List<RenderItemInfo> cachedPageItems = new java.util.ArrayList<>();
+    private String cachedPageInfo = "";
+
+    private void updatePageRenderCache(FilterProfile currentProfile) {
+        cachedPageItems.clear();
+        cachedPageInfo = "";
+        if (currentProfile == null) return;
+
+        List<FilterItemRule> rules = currentProfile.getRules();
+        int totalPages = Math.max(1, (int) Math.ceil((double) rules.size() / ITEMS_PER_PAGE));
+        cachedPageInfo = String.format("§7第 %d / %d 頁 (共 %d 種物品)§r", currentPage + 1, totalPages, rules.size());
+
+        int startIndex = currentPage * ITEMS_PER_PAGE;
+        int endIndex = Math.min(rules.size(), startIndex + ITEMS_PER_PAGE);
+
+        for (int i = startIndex; i < endIndex; i++) {
+            FilterItemRule rule = rules.get(i);
+            ItemStack iconStack = ItemStack.EMPTY;
+            try {
+                Item item = BuiltInRegistries.ITEM.getValue(Identifier.parse(rule.getItemId()));
+                if (item != Items.AIR) {
+                    iconStack = new ItemStack(item);
+                }
+            } catch (Exception ignored) {}
+
+            String displayName = rule.getDisplayName();
+            if (displayName == null || displayName.isEmpty()) {
+                displayName = rule.getItemId();
+            }
+            if (displayName.length() > 9) {
+                displayName = displayName.substring(0, 8) + "…";
+            }
+
+            cachedPageItems.add(new RenderItemInfo(iconStack, displayName));
+        }
+    }
+
     @Override
     protected void init() {
         this.clearWidgets();
@@ -55,6 +102,7 @@ public class ItemFilterScreen extends Screen {
             selectedProfileIndex = Math.max(0, profiles.size() - 1);
         }
         FilterProfile currentProfile = !profiles.isEmpty() ? profiles.get(selectedProfileIndex) : null;
+        updatePageRenderCache(currentProfile);
 
         int leftPaneWidth = 140;
         int leftX = 10;
@@ -341,41 +389,19 @@ public class ItemFilterScreen extends Screen {
             extractor.text(this.font, "§e保留物品清單 - " + currentProfile.getName() + "§r", rightX, 18, 0xFFFFFF);
             extractor.text(this.font, "§7統一數量:§r", rightX, 35, 0xAAAAAA);
 
-            // 渲染分頁資訊
-            List<FilterItemRule> rules = currentProfile.getRules();
-            int totalPages = Math.max(1, (int) Math.ceil((double) rules.size() / ITEMS_PER_PAGE));
-            String pageInfo = String.format("§7第 %d / %d 頁 (共 %d 種物品)§r", currentPage + 1, totalPages, rules.size());
-            extractor.text(this.font, pageInfo, rightX + 10, 30 + ITEMS_PER_PAGE * 24 + 28, 0xAAAAAA);
+            // 渲染分頁資訊（使用快取的字串）
+            extractor.text(this.font, cachedPageInfo, rightX + 10, 30 + ITEMS_PER_PAGE * 24 + 28, 0xAAAAAA);
 
-            // 渲染當前頁面的物品圖示與名稱
+            // 渲染當前頁面的物品圖示與名稱（直接使用快取）
             int rightY = 58;
-            int startIndex = currentPage * ITEMS_PER_PAGE;
-            int endIndex = Math.min(rules.size(), startIndex + ITEMS_PER_PAGE);
+            for (int i = 0; i < cachedPageItems.size(); i++) {
+                RenderItemInfo itemInfo = cachedPageItems.get(i);
+                int rowY = rightY + i * 24;
 
-            for (int i = startIndex; i < endIndex; i++) {
-                FilterItemRule rule = rules.get(i);
-                int rowY = rightY + (i - startIndex) * 24;
-
-                ItemStack iconStack = ItemStack.EMPTY;
-                try {
-                    Item item = BuiltInRegistries.ITEM.getValue(Identifier.parse(rule.getItemId()));
-                    if (item != Items.AIR) {
-                        iconStack = new ItemStack(item);
-                    }
-                } catch (Exception ignored) {}
-
-                if (!iconStack.isEmpty()) {
-                    extractor.fakeItem(iconStack, rightX, rowY + 1);
+                if (!itemInfo.stack.isEmpty()) {
+                    extractor.fakeItem(itemInfo.stack, rightX, rowY + 1);
                 }
-
-                String displayName = rule.getDisplayName();
-                if (displayName == null || displayName.isEmpty()) {
-                    displayName = rule.getItemId();
-                }
-                if (displayName.length() > 9) {
-                    displayName = displayName.substring(0, 8) + "…";
-                }
-                extractor.text(this.font, displayName, rightX + 22, rowY + 5, 0xFFFFFF);
+                extractor.text(this.font, itemInfo.displayName, rightX + 22, rowY + 5, 0xFFFFFF);
             }
         }
 
@@ -384,7 +410,7 @@ public class ItemFilterScreen extends Screen {
 
     @Override
     public void onClose() {
-        ModConfig.getInstance().save();
+        ModConfig.getInstance().saveNow();
         if (this.parentScreen != null && this.minecraft.gui != null) {
             this.minecraft.gui.setScreen(this.parentScreen);
         } else {

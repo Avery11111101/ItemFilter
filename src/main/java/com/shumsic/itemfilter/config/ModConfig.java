@@ -60,6 +60,20 @@ public class ModConfig {
     }
 
     public void save() {
+        saveAsync();
+    }
+
+    /**
+     * 非同步將設定檔序列化並寫入磁碟，避免阻塞主遊戲/渲染執行緒
+     */
+    public void saveAsync() {
+        java.util.concurrent.CompletableFuture.runAsync(this::saveNow);
+    }
+
+    /**
+     * 同步立即將設定檔寫入磁碟（用於關閉遊戲、關閉視窗等需要確保落盤的時機）
+     */
+    public synchronized void saveNow() {
         File file = getConfigFile();
         try {
             File parent = file.getParentFile();

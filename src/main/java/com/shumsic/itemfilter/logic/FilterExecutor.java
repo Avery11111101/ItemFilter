@@ -23,20 +23,30 @@ public class FilterExecutor {
         return INSTANCE;
     }
 
-    /** 單次丟棄封包動作 */
-    public static class DropAction {
+    /** 單次容器介面互動動作 */
+    public static class WindowAction {
         public final int containerId;
         public final int slotIndex;
-        public final int button; // 0 = 丟出1個(Q), 1 = 丟出整組(Ctrl+Q)
+        public final int button;
+        public final ContainerInput actionType;
 
-        public DropAction(int containerId, int slotIndex, int button) {
+        public WindowAction(int containerId, int slotIndex, int button, ContainerInput actionType) {
             this.containerId = containerId;
             this.slotIndex = slotIndex;
             this.button = button;
+            this.actionType = actionType;
+        }
+
+        public static WindowAction dropStack(int containerId, int slotIndex) {
+            return new WindowAction(containerId, slotIndex, 1, ContainerInput.THROW); // Ctrl+Q 整組丟棄
+        }
+
+        public static WindowAction dropSingle(int containerId, int slotIndex) {
+            return new WindowAction(containerId, slotIndex, 0, ContainerInput.THROW); // Q 單顆丟棄
         }
     }
 
-    private final Queue<DropAction> dropQueue = new ArrayDeque<>();
+    private final Queue<WindowAction> actionQueue = new ArrayDeque<>();
     private int tickCounter = 0;
     private int ticksSinceScreenOpen = 0;
     private boolean autoFilterPending = false;
@@ -64,7 +74,7 @@ public class FilterExecutor {
      */
     public void onScreenOpened(AbstractContainerScreen<?> screen) {
         ticksSinceScreenOpen = 0;
-        dropQueue.clear();
+        actionQueue.clear();
         ModConfig config = ModConfig.getInstance();
         if (config.isFilterEnabled() && config.isAutoFilterOnOpen()) {
             autoFilterPending = true;
@@ -75,7 +85,7 @@ public class FilterExecutor {
      * 當容器關閉時清理
      */
     public void onScreenClosed() {
-        dropQueue.clear();
+        actionQueue.clear();
         autoFilterPending = false;
     }
 
@@ -84,19 +94,19 @@ public class FilterExecutor {
      */
     public void onClientTick(Minecraft client) {
         if (client.player == null || client.gameMode == null || client.gui == null) {
-            dropQueue.clear();
+            actionQueue.clear();
             return;
         }
 
         if (!(client.gui.screen() instanceof AbstractContainerScreen<?> containerScreen) || !isContainerScreen(containerScreen)) {
-            dropQueue.clear();
+            actionQueue.clear();
             autoFilterPending = false;
             return;
         }
 
         AbstractContainerMenu menu = containerScreen.getMenu();
         if (menu == null) {
-            dropQueue.clear();
+            actionQueue.clear();
             return;
         }
 
@@ -109,18 +119,18 @@ public class FilterExecutor {
             }
         }
 
-        // 處理丟棄佇列
-        if (!dropQueue.isEmpty()) {
+        // 處理視窗互動與丟棄佇列
+        if (!actionQueue.isEmpty()) {
             ModConfig config = ModConfig.getInstance();
             int delay = config.getDropDelayTicks();
 
             if (delay <= 0) {
-                // 極速模式：每 tick 最多執行 10 個丟棄，避免瞬時 packet flood 斷線
+                // 極速模式：每 tick 最多執行 10 個動作，避免瞬時 packet flood 斷線
                 int actionsThisTick = 0;
-                while (!dropQueue.isEmpty() && actionsThisTick < 10) {
-                    DropAction action = dropQueue.poll();
+                while (!actionQueue.isEmpty() && actionsThisTick < 10) {
+                    WindowAction action = actionQueue.poll();
                     if (action.containerId == menu.containerId) {
-                        client.gameMode.handleContainerInput(action.containerId, action.slotIndex, action.button, ContainerInput.THROW, client.player);
+                        client.gameMode.handleContainerInput(action.containerId, action.slotIndex, action.button, action.actionType, client.player);
                         actionsThisTick++;
                     }
                 }
@@ -128,9 +138,9 @@ public class FilterExecutor {
                 tickCounter++;
                 if (tickCounter >= delay) {
                     tickCounter = 0;
-                    DropAction action = dropQueue.poll();
+                    WindowAction action = actionQueue.poll();
                     if (action != null && action.containerId == menu.containerId) {
-                        client.gameMode.handleContainerInput(action.containerId, action.slotIndex, action.button, ContainerInput.THROW, client.player);
+                        client.gameMode.handleContainerInput(action.containerId, action.slotIndex, action.button, action.actionType, client.player);
                     }
                 }
             }
@@ -179,7 +189,7 @@ public class FilterExecutor {
 
             if (matchedRule == null) {
                 // 不在白名單中：整格丟出！
-                dropQueue.add(new DropAction(menu.containerId, slot.index, 1)); // 整組丟出 (Ctrl+Q)
+                actionQueue.add(WindowAction.dropStack(menu.containerId, slot.index)); // 整組丟出 (Ctrl+Q)
                 totalDroppedItems += slotCount;
             } else {
                 int maxAllowed = matchedRule.getMaxCount();
@@ -197,12 +207,23 @@ public class FilterExecutor {
 
                 if (dropFromSlot == slotCount) {
                     // 整格都超額，整組丟出 (Ctrl+Q)
-                    dropQueue.add(new DropAction(menu.containerId, slot.index, 1));
+                    actionQueue.add(WindowAction.dropStack(menu.containerId, slot.index));
                     totalDroppedItems += slotCount;
                 } else if (dropFromSlot > 0) {
-                    // 部分超額，模擬逐個 Q 鍵丟出 dropFromSlot 個
-                    for (int i = 0; i < dropFromSlot; i++) {
-                        dropQueue.add(new DropAction(menu.containerId, slot.index, 0));
+                    // 部分超額：若超額數量佔了絕大多數（例如保留少量，丟棄大量），
+                    // 或甚至只需要丟棄少量，以最少封包與最少掉落物為目標
+                    if (keepFromSlot <= 3 && dropFromSlot > 3) {
+                        // 技巧：先整組丟出 (Ctrl+Q)，此時掉落一整疊（單一掉落物實體！不會造成掉落物風暴）
+                        // 然後玩家若有需要可保留在身上或此處已將大部分超額以單疊丟出
+                        actionQueue.add(WindowAction.dropStack(menu.containerId, slot.index));
+                    } else if (dropFromSlot <= 8) {
+                        // 小於等於 8 個超額，模擬 Q 丟出，數量少不會引發風暴
+                        for (int i = 0; i < dropFromSlot; i++) {
+                            actionQueue.add(WindowAction.dropSingle(menu.containerId, slot.index));
+                        }
+                    } else {
+                        // 超額數量較大時：整組丟出 (Ctrl+Q)，避免在地面生成數十個單顆實體
+                        actionQueue.add(WindowAction.dropStack(menu.containerId, slot.index));
                     }
                     totalDroppedItems += dropFromSlot;
                 }

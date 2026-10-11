@@ -57,6 +57,16 @@ public class FilterItemRule {
             return false;
         }
         String currentId = BuiltInRegistries.ITEM.getKey(stack.getItem()).toString();
+        return matches(stack, currentId);
+    }
+
+    /**
+     * 重用已解析的 itemId 進行快速比對，避免重複呼叫 Registry 與 toString()
+     */
+    public boolean matches(ItemStack stack, String currentId) {
+        if (stack == null || stack.isEmpty()) {
+            return false;
+        }
         if (!Objects.equals(this.itemId, currentId)) {
             return false;
         }

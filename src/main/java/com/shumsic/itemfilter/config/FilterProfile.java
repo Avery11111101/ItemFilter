@@ -61,6 +61,26 @@ public class FilterProfile {
         this.defaultMatchNbt = defaultMatchNbt;
     }
 
+    // 記憶體快取索引（不進行 GSON 序列化）
+    private transient java.util.Map<String, List<FilterItemRule>> ruleIndexByItemId;
+
+    public void invalidateCache() {
+        this.ruleIndexByItemId = null;
+    }
+
+    private void ensureIndex() {
+        if (ruleIndexByItemId != null) return;
+        java.util.Map<String, List<FilterItemRule>> index = new java.util.HashMap<>();
+        if (rules != null) {
+            for (FilterItemRule rule : rules) {
+                if (rule != null && rule.getItemId() != null) {
+                    index.computeIfAbsent(rule.getItemId(), k -> new ArrayList<>()).add(rule);
+                }
+            }
+        }
+        this.ruleIndexByItemId = index;
+    }
+
     public List<FilterItemRule> getRules() {
         if (rules == null) {
             rules = new ArrayList<>();
@@ -70,17 +90,29 @@ public class FilterProfile {
 
     public void setRules(List<FilterItemRule> rules) {
         this.rules = rules;
+        invalidateCache();
     }
 
     /**
-     * 尋找匹配特定 ItemStack 的規則
+     * 尋找匹配特定 ItemStack 的規則（利用 Item ID 索引達成 O(1) 分組快速比對）
      */
     public FilterItemRule findRule(ItemStack stack) {
         if (stack == null || stack.isEmpty() || rules == null) {
             return null;
         }
-        for (FilterItemRule rule : rules) {
-            if (rule.matches(stack)) {
+        ensureIndex();
+
+        net.minecraft.resources.Identifier itemId = net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(stack.getItem());
+        if (itemId == null) return null;
+        String idStr = itemId.toString();
+
+        List<FilterItemRule> candidates = ruleIndexByItemId.get(idStr);
+        if (candidates == null || candidates.isEmpty()) {
+            return null;
+        }
+
+        for (FilterItemRule rule : candidates) {
+            if (rule.matches(stack, idStr)) {
                 return rule;
             }
         }
@@ -100,10 +132,12 @@ public class FilterProfile {
             if (existing.equals(newRule)) {
                 existing.setMaxCount(newRule.getMaxCount());
                 existing.setDisplayName(newRule.getDisplayName());
+                invalidateCache();
                 return;
             }
         }
         rules.add(newRule);
+        invalidateCache();
     }
 
     /**
@@ -116,6 +150,7 @@ public class FilterProfile {
                 rule.setMaxCount(uniformCount);
             }
         }
+        invalidateCache();
     }
 
     /**
@@ -128,5 +163,6 @@ public class FilterProfile {
                 rule.setMatchNbt(matchNbt);
             }
         }
+        invalidateCache();
     }
 }
